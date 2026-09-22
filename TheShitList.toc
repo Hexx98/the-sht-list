@@ -6,6 +6,13 @@
 ## SavedVariables: TheShitListDB
 ## SavedVariablesPerCharacter: TheShitListBackup
 
+# WoW Forever beta workaround: the client's SavedVariables loader is broken (writes fine,
+# never reads back). SV_Account / SV_Char are directory junctions to the real
+# SavedVariables folders (account-wide / Hexx), so these run the saved files as addon
+# code and the list loads anyway. Without the junctions they're simply skipped.
+SV_Account\TheShitList.lua
+SV_Char\TheShitList.lua
+
 TheShitList.lua
 TheShitList_Window.lua
 TheShitList_Rate.lua
