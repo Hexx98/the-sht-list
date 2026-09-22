@@ -38,6 +38,15 @@ local PREFIX = "|cffff5555The Shit List:|r "
 local function say(msg) DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. msg) end
 local function color(hex, text) return "|c" .. hex .. text .. "|r" end
 
+-- Set when the safety net (see "load check" below) finds the saved list failed to load.
+-- While set, every edit is refused: the list on screen is empty and isn't the real one.
+local loadFailed = false
+local function editsBlocked()
+    if not loadFailed then return false end
+    say(color(RED, "rating is paused") .. " - your saved list didn't load this session (WoW Forever beta bug). /tsl help for details.")
+    return true
+end
+
 -- ------------------------------------------------------------------ saved data
 local db, players
 
@@ -219,6 +228,7 @@ local function changed(snap, e)
 end
 
 local function toggleTag(snap, id)
+    if editsBlocked() then return end
     local e = entryFor(snap, true)
     e.tags[id] = (not e.tags[id]) or nil
     changed(snap, e)
@@ -230,6 +240,7 @@ local function toggleTag(snap, id)
 end
 
 local function setNote(snap, text)
+    if editsBlocked() then return end
     text = text and strtrim(text) or ""
     local e = entryFor(snap, text ~= "")
     if not e then return end
@@ -239,6 +250,7 @@ local function setNote(snap, text)
 end
 
 local function removeEntry(guid)
+    if editsBlocked() then return end
     local e = players[guid]
     if not e then return end
     e.removed, e.tags, e.note, e.updated = time(), {}, nil, time()
@@ -263,6 +275,7 @@ local HISTORY_MAX = 30
 -- clicking the same thumb again takes it back, clicking the other one switches it.
 -- Without a run (the right-click menu) every click is a new vote.
 local function castVote(snap, v, run)
+    if editsBlocked() then return end
     local e = entryFor(snap, true)
     e.history = e.history or {}
     if run then
@@ -294,6 +307,7 @@ local function castVote(snap, v, run)
 end
 
 local function resetVotes(snap)
+    if editsBlocked() then return end
     local e = players[snap.guid]
     if not e then return end
     e.up, e.down, e.history = nil, nil, nil
@@ -344,6 +358,79 @@ local function editNote(snap)
     if dialog then dialog.data = snap end
 end
 
+-- ------------------------------------------------------------------ load check (safety net)
+-- WoW Forever beta build 69913 writes SavedVariables to disk but often never reads them
+-- back in. When that happens the list starts empty, and logging out then writes the
+-- empty list over the real one. Tested: an addon can't stop that write (even a nil
+-- variable gets written as "= nil"). What it CAN do is notice and say so.
+--
+-- WoW's layout cache (where you dragged named frames) is unaffected by the bug, so an
+-- invisible named frame's position is used as a marker holding how many players the
+-- list had at the last logout. Marker says 12 but the list came back empty = the load
+-- failed. The layout cache is per character and rounds to whole numbers:
+--   x = (count % 1000) - 500, y = 200 + floor(count / 1000)
+local canary = CreateFrame("Frame", "TheShitListLoadMarker", UIParent)
+canary:SetSize(1, 1)
+canary:SetAlpha(0)
+canary:EnableMouse(false)
+canary:SetMovable(true) -- required for WoW to remember its position
+
+local markedCount    -- what the marker said at login (nil = no marker yet)
+local checkDone = false
+
+local function entryCount()
+    local n = 0
+    for _ in pairs(players or {}) do n = n + 1 end -- tombstones count too: they're saved data
+    return n
+end
+
+local function readMarker()
+    if canary:GetNumPoints() == 0 then return nil end
+    local _, _, _, x, y = canary:GetPoint(1)
+    if not (x and y) then return nil end
+    x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+    if x < -500 or x > 499 or y < 200 or y > 400 then return nil end
+    return (y - 200) * 1000 + (x + 500)
+end
+
+local function writeMarker(count)
+    canary:ClearAllPoints()
+    canary:SetPoint("CENTER", UIParent, "CENTER", (count % 1000) - 500, 200 + math.floor(count / 1000))
+    canary:SetUserPlaced(true)
+end
+
+StaticPopupDialogs.THESHITLIST_LOADFAIL = {
+    text = "|cffff5555The Shit List|r\n\nYour saved list (%s players) didn't load this session.\n\n"
+        .. "This is a known WoW Forever beta bug (the game saves addon data but doesn't read it back), "
+        .. "not a problem with the addon.\n\nRating is paused this session so nothing new gets mixed up with it.\n\n"
+        .. "To get it back: quit the game completely, then in\nWTF\\Account\\<account>\\SavedVariables\n"
+        .. "rename TheShitList.lua.bak to TheShitList.lua (it usually still has your list), "
+        .. "or install ForeverSVFix, which fixes this for every addon.\n\n"
+        .. "Starting a new list on purpose? Type /tsl startfresh",
+    button1 = OKAY or "OK",
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+}
+
+local function showLoadFailPopup()
+    StaticPopup_Show("THESHITLIST_LOADFAIL", tostring(markedCount or "?"))
+end
+
+local function checkLoad()
+    if checkDone then return end
+    local marked = readMarker()
+    if marked == nil then return end -- layout cache not applied yet (or first use)
+    checkDone = true
+    markedCount = marked
+    if marked > 0 and entryCount() == 0 then
+        loadFailed = true
+        say(color(RED, "your saved list (" .. marked .. " players) didn't load") .. " - known WoW Forever beta bug. Rating is paused this session. /tsl help for how to get it back.")
+        showLoadFailPopup()
+        notify()
+    end
+end
+
 -- ------------------------------------------------------------------ right-click menu
 local MENU_TAGS = {
     "MENU_UNIT_PARTY", "MENU_UNIT_RAID_PLAYER", "MENU_UNIT_RAID", "MENU_UNIT_PLAYER",
@@ -354,6 +441,11 @@ local MENU_TAGS = {
 -- the list window's row menu (snap = { guid, name, realm, class }). noVotes: leave out the
 -- thumbs (the end-of-run window has its own per-run thumbs buttons).
 local function populateRatingMenu(sub, snap, noVotes)
+    if loadFailed then
+        sub:CreateTitle(color(RED, "Your list didn't load - rating paused"))
+        sub:CreateButton("What happened?", showLoadFailPopup)
+        return
+    end
     local e = players[snap.guid]
     if not noVotes then
         local t = isActive(e) and tally(e) or ""
@@ -684,6 +776,12 @@ SlashCmdList.THESHITLIST = function(msg)
         say(color(RED, "WARNING: ") .. "Testname is in your group - " .. color(RED, "Complete asshole") .. " (this is a test)")
         banner("Shit List: Testname is in your group!", RED)
         sound("bad")
+    elseif cmd == "startfresh" then
+        if not loadFailed then say("nothing to do - your list loaded fine.") return end
+        loadFailed = false
+        markedCount = 0
+        say("OK - starting a new list. Rating is unpaused. (Your old list's file is still on disk as TheShitList.lua.bak until the game replaces it.)")
+        notify()
     elseif cmd == "endrun" then
         -- testing: end the current run right now, as if you'd left after 10+ minutes
         if TheShitListBackup.run then finishRun(true)
@@ -695,6 +793,11 @@ SlashCmdList.THESHITLIST = function(msg)
     elseif cmd == "" or cmd == "show" then
         if ns.toggleWindow then ns.toggleWindow() end
     else
+        if loadFailed then
+            say(color(RED, "Your saved list (" .. (markedCount or "?") .. " players) didn't load this session") .. " - a known WoW Forever beta bug, not the addon. Rating is paused.")
+            say("To get it back: quit the game, then in WTF\\Account\\<account>\\SavedVariables rename TheShitList.lua.bak to TheShitList.lua - or install ForeverSVFix (fixes every addon).")
+            say("Starting a new list on purpose: /tsl startfresh")
+        end
         say("right-click any player (party/raid frame, target) -> The Shit List to rate them.")
         say("/tsl  - open the list window")
         say("/tsl list [bad|good|mixed]  - show your list")
@@ -713,6 +816,7 @@ ns.RED, ns.GREEN, ns.YELLOW, ns.GREY = RED, GREEN, YELLOW, GREY
 ns.color, ns.say, ns.isActive, ns.verdict, ns.describe = color, say, isActive, verdict, describe
 ns.classColored, ns.displayName, ns.populateRatingMenu = classColored, displayName, populateRatingMenu
 ns.castVote, ns.tally = castVote, tally
+ns.loadFailed = function() return loadFailed, markedCount end
 
 -- ------------------------------------------------------------------ events
 local f = CreateFrame("Frame")
@@ -736,6 +840,10 @@ f:SetScript("OnEvent", function(_, event, ...)
         local isLogin, isReload = ...
         queueScan(isReload) -- after /reload: chat reminder only, no banner/sound
         queueTrack()
+        -- the layout cache (load marker) is applied shortly after addons load; look a few times
+        for _, delay in ipairs({ 0, 1, 3, 6, 10 }) do
+            C_Timer.After(delay, function() pcall(checkLoad) end)
+        end
     elseif event == "GROUP_ROSTER_UPDATE" then
         queueScan(false)
         queueTrack()
@@ -751,5 +859,8 @@ f:SetScript("OnEvent", function(_, event, ...)
         end
     elseif event == "PLAYER_LOGOUT" then
         saveBackup()
+        -- after a failed load, keep the OLD count in the marker so the warning keeps coming
+        -- back until the real list is restored (or /tsl startfresh)
+        pcall(writeMarker, loadFailed and (markedCount or 0) or entryCount())
     end
 end)
