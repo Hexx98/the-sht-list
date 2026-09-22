@@ -38,6 +38,16 @@ local PREFIX = "|cffff5555The Shit List:|r "
 local function say(msg) DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. msg) end
 local function color(hex, text) return "|c" .. hex .. text .. "|r" end
 
+-- On WoW Forever the "realm" shown for a player you target is really a last name
+-- ("Cordelia Mendenhall"), while lookups that don't go through a unit (chat names,
+-- GetPlayerInfoByGUID) give the server instead ("ClassicBetaPvE2") - the same for
+-- thousands of people, so it's useless as a name. Keep last names, drop server names.
+local function realOrNil(realm)
+    if type(realm) ~= "string" or realm == "" then return nil end
+    if realm:find("^ClassicBeta") or realm == GetRealmName() or realm == GetNormalizedRealmName() then return nil end
+    return realm
+end
+
 -- Set when the safety net (see "load check" below) finds the saved list failed to load.
 -- While set, every edit is refused: the list on screen is empty and isn't the real one.
 local loadFailed = false
@@ -83,6 +93,10 @@ local function initDB()
     end
     players = db.players
     ns.db, ns.players = db, players
+    -- v0.5.0 briefly saved chat-rated players' server as their last name
+    for _, e in pairs(players) do
+        if type(e) == "table" and e.realm and not realOrNil(e.realm) then e.realm = nil end
+    end
 
     -- Account-wide saved files have failed to load on this beta before. If that ever
     -- happens, this character's backup refills the list instead of it being wiped.
@@ -187,7 +201,7 @@ local function entryFor(snap, create)
             e.removed, e.tags, e.note, e.up, e.down, e.history = nil, {}, nil, nil, nil, nil
         end
         e.name, e.class = snap.name or e.name, snap.class or e.class
-        if snap.realm and snap.realm ~= "" then e.realm = snap.realm end
+        if realOrNil(snap.realm) then e.realm = snap.realm end -- fills in the last name when seen as a unit
     end
     return e
 end
@@ -435,6 +449,9 @@ end
 local MENU_TAGS = {
     "MENU_UNIT_PARTY", "MENU_UNIT_RAID_PLAYER", "MENU_UNIT_RAID", "MENU_UNIT_PLAYER",
     "MENU_UNIT_TARGET", "MENU_UNIT_FOCUS", "MENU_UNIT_FRIEND", "MENU_UNIT_ENEMY_PLAYER",
+    -- names clicked in chat and in guild/community/chat-channel rosters
+    "MENU_UNIT_CHAT_ROSTER", "MENU_UNIT_GUILD", "MENU_UNIT_COMMUNITIES_GUILD_MEMBER",
+    "MENU_UNIT_COMMUNITIES_MEMBER", "MENU_UNIT_COMMUNITIES_WOW_MEMBER",
 }
 
 -- the tag checkboxes / note / remove items; used by the unit right-click submenu and by
@@ -481,10 +498,83 @@ local function populateRatingMenu(sub, snap, noVotes)
     end
 end
 
+-- a value we can actually use (not nil, not a WoW Forever secret value)
+local function plain(v)
+    return v ~= nil and not (issecretvalue and issecretvalue(v))
+end
+
+-- Names clicked in chat (and guild/community rosters) aren't units, so there's no unit
+-- token to read a GUID from. Try, in order: a GUID the menu passes directly, the chat
+-- line's sender GUID, and finally someone already on the list with that name.
+local function snapshotFromName(ctx)
+    local guid = plain(ctx.guid) and type(ctx.guid) == "string" and ctx.guid or nil
+    if not guid and plain(ctx.lineID) and C_ChatInfo and C_ChatInfo.GetChatLineSenderGUID then
+        local ok, g = pcall(C_ChatInfo.GetChatLineSenderGUID, ctx.lineID)
+        if ok and plain(g) and type(g) == "string" and g ~= "" then guid = g end
+    end
+    local name = plain(ctx.name) and ctx.name or nil
+    local realm = plain(ctx.server) and ctx.server or nil
+    if name and not realm and name:find("-", 1, true) then name, realm = name:match("^(.-)%-(.+)$") end
+    realm = realOrNil(realm)
+
+    if guid and guid:find("^Player%-") then
+        if guid == UnitGUID("player") then return nil end
+        local class, gname
+        if GetPlayerInfoByGUID then
+            -- its realm return is deliberately ignored: on WoW Forever it's the server
+            -- (e.g. "ClassicBetaPvE2"), not the "last name" the game shows for units
+            local ok, _, c, _, _, _, n = pcall(GetPlayerInfoByGUID, guid)
+            if ok then
+                class = plain(c) and c or nil
+                gname = plain(n) and n or nil
+            end
+        end
+        return { guid = guid, name = gname or name, realm = realm, class = class }
+    end
+
+    -- no GUID: fall back to someone already on the list with this name
+    if name then
+        local want = name:lower()
+        for g, e in pairs(players) do
+            if not e.removed and (e.name or ""):lower() == want
+                and (not realm or not e.realm or e.realm:lower() == realm:lower()) then
+                return { guid = g, name = e.name, realm = e.realm, class = e.class }
+            end
+        end
+    end
+    return nil
+end
+
+local function describeContext(ctx) -- for the "can't identify" menu: what did the game give us?
+    local parts = {}
+    for k, v in pairs(ctx or {}) do
+        parts[#parts + 1] = tostring(k) .. "=" .. (plain(v) and tostring(v) or "<secret>")
+    end
+    table.sort(parts)
+    return table.concat(parts, ", ")
+end
+
 local lastRoot -- a menu could match two tags; only add our section once
-local function buildMenu(owner, root, ctx)
+local function buildMenu(owner, root, ctx, tag)
     if root == lastRoot then return end
-    local snap = snapshot(ctx and ctx.unit)
+    ctx = ctx or {}
+    local snap = snapshot(ctx.unit)
+    if not snap and not ctx.unit then
+        snap = snapshotFromName(ctx)
+        if not snap then
+            -- a name we couldn't pin to a character: say so rather than silently vanish
+            if not plain(ctx.name) or ctx.name == UnitName("player") then return end
+            lastRoot = root
+            root:CreateDivider()
+            local sub = root:CreateButton("The Shit List")
+            sub:CreateTitle(color(GREY, "Can't identify this player from here"))
+            sub:CreateTitle(color(GREY, "Target them or right-click their portrait instead"))
+            sub:CreateButton(color(GREY, "Print details (for Hexx)"), function()
+                say("menu " .. tostring(tag) .. ": " .. describeContext(ctx))
+            end)
+            return
+        end
+    end
     if not snap then return end
     lastRoot = root
 
@@ -506,7 +596,7 @@ local function hookMenus()
     end
     for _, tag in ipairs(MENU_TAGS) do
         Menu.ModifyMenu(tag, function(owner, root, ctx)
-            local ok, err = pcall(buildMenu, owner, root, ctx)
+            local ok, err = pcall(buildMenu, owner, root, ctx, tag)
             if not ok then say("menu error: " .. tostring(err)) end
         end)
     end
@@ -522,6 +612,11 @@ local function hookTooltip()
             local guid = UnitGUID(unit)
             local e = guid and players[guid]
             if not isActive(e) then return end
+            -- picks up the last name for people first rated from chat (no unit back then)
+            if not e.realm then
+                local snap = snapshot(unit)
+                if snap then entryFor(snap, false) end
+            end
             local v = verdict(e)
             tip:AddLine(color(VERDICT_COLOR[v], "Shit List (" .. v .. "): ") .. describe(e), 1, 1, 1, true)
         end)
