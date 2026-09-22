@@ -2,7 +2,7 @@
 ## Title: The Shit List
 ## Notes: Remember the players you loved and the ones you'd rather not see again. Right-click a player to rate them; get warned when they join your group.
 ## Author: Hexx
-## Version: 0.5.0
+## Version: 0.6.0
 ## SavedVariables: TheShitListDB
 ## SavedVariablesPerCharacter: TheShitListBackup
 
@@ -16,3 +16,4 @@ SV_Char\TheShitList.lua
 TheShitList.lua
 TheShitList_Window.lua
 TheShitList_Rate.lua
+TheShitList_LFG.lua
