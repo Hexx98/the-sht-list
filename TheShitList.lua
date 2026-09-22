@@ -871,6 +871,11 @@ SlashCmdList.THESHITLIST = function(msg)
         say(color(RED, "WARNING: ") .. "Testname is in your group - " .. color(RED, "Complete asshole") .. " (this is a test)")
         banner("Shit List: Testname is in your group!", RED)
         sound("bad")
+    elseif cmd == "lfgpreview" then
+        if not ns.lfgPreview then say("group finder support didn't load.") return end
+        local on, rows, tip = ns.lfgPreview()
+        say("group finder preview " .. onOff(on) .. " (display only - sample marker on every row; nothing is saved)."
+            .. ((rows and tip) and "" or color(YELLOW, " Open the group finder first so it can hook in, then run this again.")))
     elseif cmd == "startfresh" then
         if not loadFailed then say("nothing to do - your list loaded fine.") return end
         loadFailed = false
