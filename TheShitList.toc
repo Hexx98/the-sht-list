@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: The Shit List
+## Notes: Remember the players you loved and the ones you'd rather not see again. Right-click a player to rate them; get warned when they join your group.
+## Author: Hexx
+## Version: 0.3.0
+## SavedVariables: TheShitListDB
+## SavedVariablesPerCharacter: TheShitListBackup
+
+TheShitList.lua
+TheShitList_Window.lua
+TheShitList_Rate.lua
