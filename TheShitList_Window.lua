@@ -310,8 +310,13 @@ function update()
         end
     end
 
+    local failed, marked = ns.loadFailed()
     if #results == 0 then
-        if total == 0 then
+        if failed then
+            win.empty:SetText("|cffff5555Your saved list (" .. (marked or "?") .. " players) didn't load this session.|r\n\n"
+                .. "This is a known WoW Forever beta bug, not the addon. Rating is paused.\n"
+                .. "Type /tsl help for how to get your list back.")
+        elseif total == 0 then
             win.empty:SetText("Nobody on the list yet.\n\nRight-click any player (target, party or raid frame) and pick The Shit List to rate them.")
         else
             win.empty:SetText("No one matches that filter/search.")
