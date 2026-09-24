@@ -31,13 +31,14 @@ end
 local ICON_SIZE = 16
 local ICON = {}
 do
+    -- this client ships no thumbs art, so the addon brings its own (media\thumbs*.tga)
+    local MEDIA = "Interface\\AddOns\\" .. ADDON .. "\\media\\"
     local up = firstExistingTexture({
-        "Interface\\ICONS\\INV_Misc_ThumbsUp_01",
-        "Interface\\ICONS\\Ability_Warrior_Rallyingcry",
+        MEDIA .. "thumbsup.tga",
         "Interface\\RaidFrame\\ReadyCheck-Ready",
     })
     local down = firstExistingTexture({
-        "Interface\\ICONS\\INV_Misc_ThumbsDown_01",
+        MEDIA .. "thumbsdown.tga",
         "Interface\\RaidFrame\\ReadyCheck-NotReady",
     })
     local maybe = firstExistingTexture({ "Interface\\RaidFrame\\ReadyCheck-Waiting" })

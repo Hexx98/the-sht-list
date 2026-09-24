@@ -81,7 +81,11 @@ local function merge(into, from)
     return restored
 end
 
-local DEFAULTS = { banner = true, sound = true, announceGood = true }
+-- macroBackup: mirror the list into hidden macros, which live on Blizzard's servers and
+-- so survive the beta bug that stops saved variables loading (see TheShitList_Macro.lua).
+-- Off by default: it's an emergency option, offered by the "didn't load" popup, rather
+-- than something that quietly fills everyone's macro list.
+local DEFAULTS = { banner = true, sound = true, announceGood = true, macroBackup = false }
 
 local function initDB()
     TheShitListDB = TheShitListDB or {}
@@ -420,6 +424,9 @@ StaticPopupDialogs.THESHITLIST_LOADFAIL = {
         .. "To get it back: quit the game completely, then in\nWTF\\Account\\<account>\\SavedVariables\n"
         .. "rename TheShitList.lua.bak to TheShitList.lua (it usually still has your list), "
         .. "or install ForeverSVFix, which fixes this for every addon.\n\n"
+        .. "(The addon also keeps a backup in hidden macros, which survives this bug. It had "
+        .. "nothing to restore this time - it starts saving from now on, so a future failure "
+        .. "should recover by itself. /tsl macrobackup)\n\n"
         .. "Starting a new list on purpose? Type /tsl startfresh",
     button1 = OKAY or "OK",
     timeout = 0,
@@ -438,6 +445,17 @@ local function checkLoad()
     checkDone = true
     markedCount = marked
     if marked > 0 and entryCount() == 0 then
+        -- the saved file didn't load: rebuild from the macro mirror before giving up
+        if ns.restoreFromMacros then
+            local restored = ns.restoreFromMacros()
+            if restored and restored > 0 then
+                say(color(GREEN, "restored " .. restored .. " player(s) from the macro backup")
+                    .. " - the saved file didn't load (WoW Forever beta bug), so the built-in backup was used instead.")
+                markedCount = entryCount()
+                notify()
+                return
+            end
+        end
         loadFailed = true
         say(color(RED, "your saved list (" .. marked .. " players) didn't load") .. " - known WoW Forever beta bug. Rating is paused this session. /tsl help for how to get it back.")
         showLoadFailPopup()
@@ -871,6 +889,21 @@ SlashCmdList.THESHITLIST = function(msg)
         say(color(RED, "WARNING: ") .. "Testname is in your group - " .. color(RED, "Complete asshole") .. " (this is a test)")
         banner("Shit List: Testname is in your group!", RED)
         sound("bad")
+    elseif cmd == "macrobackup" then
+        if not ns.macroBackupSet then say("macro backup didn't load.") return end
+        local slots = rest:match("^slots%s+(%d+)$")
+        if slots then
+            local n = ns.macroBackupSlots(tonumber(slots))
+            say("macro backup may now use up to " .. n .. " macro(s) (~" .. (n * 3) .. "-" .. (n * 5) .. " players). WoW allows 120 account macros in total.")
+        elseif rest == "on" or rest == "off" then
+            local on = ns.macroBackupSet(rest == "on")
+            say("macro backup " .. onOff(on) .. (on and " - your list is mirrored into hidden macros (TSL1, TSL2...), which survive the beta's saved-data bug."
+                or " - the backup macros have been deleted."))
+        else
+            local used, saved, total = ns.macroBackupStatus()
+            say("macro backup " .. onOff(db.settings.macroBackup) .. ": " .. saved .. " of " .. total
+                .. " player(s) mirrored across " .. used .. " macro(s). Usage: /tsl macrobackup on|off|slots <n>")
+        end
     elseif cmd == "lfgpreview" then
         if not ns.lfgPreview then say("group finder support didn't load.") return end
         local on, rows, tip = ns.lfgPreview()
@@ -907,6 +940,8 @@ SlashCmdList.THESHITLIST = function(msg)
         say("/tsl banner | sound | good  - toggle banner (" .. onOff(db.settings.banner) .. "), sound ("
             .. onOff(db.settings.sound) .. "), announcing good players (" .. onOff(db.settings.announceGood) .. ")")
         say("/tsl test  - preview a warning")
+        say("/tsl macrobackup [on|off]  - backup copy kept in hidden macros (" .. onOff(db.settings.macroBackup)
+            .. "); survives the beta bug that stops saved data loading")
     end
 end
 
@@ -917,6 +952,8 @@ ns.color, ns.say, ns.isActive, ns.verdict, ns.describe = color, say, isActive, v
 ns.classColored, ns.displayName, ns.populateRatingMenu = classColored, displayName, populateRatingMenu
 ns.castVote, ns.tally = castVote, tally
 ns.loadFailed = function() return loadFailed, markedCount end
+ns.entryCount = function() return entryCount() end
+ns.entryFor = function(snap, create) return entryFor(snap, create) end
 
 -- ------------------------------------------------------------------ events
 local f = CreateFrame("Frame")
