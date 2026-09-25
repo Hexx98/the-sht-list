@@ -308,6 +308,26 @@ local function onInvite(name)
     end
 end
 
+-- /tsl testinvite <name>: runs the invite warning by hand. It covers everything except
+-- the game's own event, so it also reports whether that event exists on this client.
+ns.testInvite = function(name)
+    local valid = "unknown"
+    if C_EventUtils and C_EventUtils.IsEventValid then
+        local ok, v = pcall(C_EventUtils.IsEventValid, "PARTY_INVITE_REQUEST")
+        valid = ok and tostring(v) or "check failed"
+    end
+    ns.say("PARTY_INVITE_REQUEST valid on this client: " .. valid)
+    if not name or name == "" then
+        ns.say("usage: /tsl testinvite <name>  - someone already on your list (see /tsl list)")
+        return
+    end
+    if not findByFullName(name) then
+        ns.say("no one on your list matches '" .. name .. "'.")
+        return
+    end
+    onInvite(name)
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
