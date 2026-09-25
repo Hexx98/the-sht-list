@@ -572,6 +572,23 @@ local function describeContext(ctx) -- for the "can't identify" menu: what did t
     return table.concat(parts, ", ")
 end
 
+-- our own context menu, opened from the unit menu (see the comment in buildMenu)
+local function openRatingMenu(snap, owner)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then
+        say("this client can't open context menus - use /tsl instead.")
+        return
+    end
+    local anchor = (owner and owner.GetName and owner:GetName() and owner) or UIParent
+    -- next frame, so Blizzard's menu has finished closing
+    C_Timer.After(0, function()
+        local e = players[snap.guid]
+        MenuUtil.CreateContextMenu(anchor, function(_, root)
+            root:CreateTitle(classColored(e or snap, displayName(e or snap)))
+            populateRatingMenu(root, snap)
+        end)
+    end)
+end
+
 local lastRoot -- a menu could match two tags; only add our section once
 local function buildMenu(owner, root, ctx, tag)
     if root == lastRoot then return end
@@ -584,11 +601,10 @@ local function buildMenu(owner, root, ctx, tag)
             if not plain(ctx.name) or ctx.name == UnitName("player") then return end
             lastRoot = root
             root:CreateDivider()
-            local sub = root:CreateButton("The Shit List")
-            sub:CreateTitle(color(GREY, "Can't identify this player from here"))
-            sub:CreateTitle(color(GREY, "Target them or right-click their portrait instead"))
-            sub:CreateButton(color(GREY, "Print details (for Hexx)"), function()
+            root:CreateButton(color(GREY, "The Shit List: can't identify this player"), function()
+                say("can't tell who that is from here - target them or right-click their portrait instead.")
                 say("menu " .. tostring(tag) .. ": " .. describeContext(ctx))
+                return MenuResponse and MenuResponse.Close
             end)
             return
         end
@@ -604,7 +620,17 @@ local function buildMenu(owner, root, ctx, tag)
     end
 
     root:CreateDivider()
-    populateRatingMenu(root:CreateButton(label), snap)
+    -- One plain entry that closes Blizzard's menu and opens ours.
+    --
+    -- The tags used to be a submenu here, but picking anything in it made Blizzard's menu
+    -- re-evaluate its own entries (Trade, Follow, Duel...) in an execution path our code
+    -- had touched, and those entries need protected calls - producing
+    -- "AddOn 'TheShitList' tried to call the protected function 'CheckInteractDistance()'".
+    -- Our own menu contains only our items, so nothing protected is re-checked.
+    root:CreateButton(label, function()
+        openRatingMenu(snap, owner)
+        return MenuResponse and MenuResponse.Close
+    end)
 end
 
 local function hookMenus()
