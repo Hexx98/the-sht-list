@@ -941,6 +941,10 @@ SlashCmdList.THESHITLIST = function(msg)
         markedCount = 0
         say("OK - starting a new list. Rating is unpaused. (Your old list's file is still on disk as TheShitList.lua.bak until the game replaces it.)")
         notify()
+    elseif cmd == "ratepreview" then
+        -- see the end-of-run window without needing a dungeon group; saves nothing
+        if ns.showRatePreview then ns.showRatePreview()
+        else say("rating window didn't load.") end
     elseif cmd == "endrun" then
         -- testing: end the current run right now, as if you'd left after 10+ minutes
         if TheShitListBackup.run then finishRun(true)

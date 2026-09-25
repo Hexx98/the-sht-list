@@ -125,15 +125,25 @@ local function build()
         row.up = plainButton(row, "|cff60ff60+1|r", 40)
         row.up:SetPoint("RIGHT", row.down, "LEFT", -4, 0)
 
-        row.up:SetScript("OnClick", function()
-            if row.member then ns.castVote(snapOf(row.member), 1, currentRun); update() end
-        end)
-        row.down:SetScript("OnClick", function()
-            if row.member then ns.castVote(snapOf(row.member), -1, currentRun); update() end
-        end)
+        local function vote(v)
+            if not row.member then return end
+            if currentRun and currentRun.preview then
+                -- preview: remember the click for the look of it, save nothing
+                currentRun.votes[row.member.guid] = currentRun.votes[row.member.guid] ~= v and v or nil
+            else
+                ns.castVote(snapOf(row.member), v, currentRun)
+            end
+            update()
+        end
+        row.up:SetScript("OnClick", function() vote(1) end)
+        row.down:SetScript("OnClick", function() vote(-1) end)
         row.tags:SetScript("OnClick", function(self)
             local m = row.member
             if not m or not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+            if currentRun and currentRun.preview then
+                ns.say("preview only - these players aren't real, so there's nothing to tag.")
+                return
+            end
             local snap = snapOf(m)
             MenuUtil.CreateContextMenu(self, function(owner, root)
                 root:CreateTitle(ns.classColored(m, ns.displayName(m)))
@@ -214,6 +224,23 @@ function update()
     win.pageText:SetText(#members > ROWS and ((offset + 1) .. "-" .. math.min(offset + ROWS, #members) .. " of " .. #members) or "")
     win.prevButton:SetShown(offset > 0)
     win.nextButton:SetShown(offset < maxOffset)
+end
+
+-- /tsl ratepreview: the end-of-run window with made-up players, for checking the layout
+-- without needing a dungeon group. Votes are kept inside the fake run, so nothing is saved.
+ns.showRatePreview = function()
+    local now = time()
+    local fake = {
+        id = "preview", key = "preview", where = "Wailing Caverns (preview)",
+        start = now - 42 * 60, ended = now, votes = {}, preview = true,
+        members = {
+            ["preview-1"] = { name = "Kakinu", realm = "Indebols", class = "HUNTER", since = now - 42 * 60, last = now },
+            ["preview-2"] = { name = "Seashells", realm = "Sunseam", class = "ROGUE", since = now - 40 * 60, last = now },
+            ["preview-3"] = { name = "Adrix", realm = "First", class = "PALADIN", since = now - 39 * 60, last = now },
+            ["preview-4"] = { name = "Latecomer", realm = "Joinedlate", class = "MAGE", since = now - 60, last = now },
+        },
+    }
+    ns.showRate(fake)
 end
 
 ns.showRate = function(run)
