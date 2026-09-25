@@ -144,7 +144,7 @@ local function showRowTooltip(row)
 end
 
 local function build()
-    win = CreateFrame("Frame", "TheShitListWindow", UIParent, "BackdropTemplate")
+    win = CreateFrame("Frame", "TheShtListWindow", UIParent, "BackdropTemplate")
     win:SetSize(WIDTH, ROWS * ROW_H + 118)
     win:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -171,12 +171,12 @@ local function build()
     else
         win:SetPoint("CENTER")
     end
-    tinsert(UISpecialFrames, "TheShitListWindow") -- Escape closes it
+    tinsert(UISpecialFrames, "TheShtListWindow") -- Escape closes it
     win:Hide()
 
     local title = win:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 18, -16)
-    title:SetText("|cffff5555The Shit List|r")
+    title:SetText("|cffff5555The Sh*t List|r")
     win.count = win:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     win.count:SetPoint("LEFT", title, "RIGHT", 10, -1)
 
@@ -317,7 +317,7 @@ function update()
                 .. "This is a known WoW Forever beta bug, not the addon. Rating is paused.\n"
                 .. "Type /tsl help for how to get your list back.")
         elseif total == 0 then
-            win.empty:SetText("Nobody on the list yet.\n\nRight-click any player (target, party or raid frame) and pick The Shit List to rate them.")
+            win.empty:SetText("Nobody on the list yet.\n\nRight-click any player (target, party or raid frame) and pick The Sh*t List to rate them.")
         else
             win.empty:SetText("No one matches that filter/search.")
         end
