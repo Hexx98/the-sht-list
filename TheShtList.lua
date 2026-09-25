@@ -959,6 +959,9 @@ SlashCmdList.THESHITLIST = function(msg)
         markedCount = 0
         say("OK - starting a new list. Rating is unpaused. (Your old list's file is still on disk as TheShtList.lua.bak until the game replaces it.)")
         notify()
+    elseif cmd == "testinvite" then
+        -- run the invite warning by hand: /tsl testinvite <someone on your list>
+        if ns.testInvite then ns.testInvite(rest) else say("group finder support didn't load.") end
     elseif cmd == "ratepreview" then
         -- see the end-of-run window without needing a dungeon group; saves nothing
         if ns.showRatePreview then ns.showRatePreview()
