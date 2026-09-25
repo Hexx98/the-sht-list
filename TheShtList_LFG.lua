@@ -49,6 +49,7 @@ do
     ICON.mixed = tex(maybe)
     ICON.note = ICON.mixed
     ns.lfgIcons = { up = up or "none", down = down or "none", maybe = maybe or "none" }
+    ns.thumbIcons = ICON -- shared with the end-of-run window's +1 / -1 buttons
 end
 
 local function plain(v)
@@ -152,7 +153,7 @@ local function decorate(row)
     end
     -- layout record for placing the marker (written once per session while previewing;
     -- saved with the character's data on /reload, read from the file - not shown in game)
-    if preview and not ns.lfgLayoutRecorded and rowLeft and TheShitListBackup then
+    if preview and not ns.lfgLayoutRecorded and rowLeft and TheShtListBackup then
         ns.lfgLayoutRecorded = true
         local out = { rowWidth = rowWidth, rowHeight = row:GetHeight() }
         local function rec(obj, prefix)
@@ -175,7 +176,7 @@ local function decorate(row)
             for _, gc in ipairs({ child:GetChildren() }) do rec(gc, "  ") end
         end
         out.chosenX = maxRight and math.floor(maxRight - rowLeft + 0.5) or "none"
-        TheShitListBackup.lfgLayout = out
+        TheShtListBackup.lfgLayout = out
     end
     -- Right-aligned to the end of the row, so markers line up in a column down the list,
     -- but never closer than 10px to the role icons (which end at maxRight).
@@ -224,7 +225,7 @@ local function addTooltipLine(tooltip, resultID)
 
     local v = lfgVerdict(e)
     local lines = {
-        ICON[v] .. " " .. ns.color(ns.VERDICT_COLOR[v], "Shit List")
+        ICON[v] .. " " .. ns.color(ns.VERDICT_COLOR[v], "Sh*t List")
             .. (exact and "" or ns.color(ns.GREY, "  (matched by first name only)")),
         ns.describe(e),
     }

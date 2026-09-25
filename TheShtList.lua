@@ -1,6 +1,6 @@
 -- The Shit List (WoW Forever) - by Hexx
 -- Rate the players you group with. Right-click a player (party/raid frame, target, focus)
--- -> "The Shit List" -> tick canned good/bad tags and/or add a note. Whenever someone on
+-- -> "The Sh*t List" -> tick canned good/bad tags and/or add a note. Whenever someone on
 -- the list is in your group (you join theirs, or they join yours) you get a warning -
 -- or a heads-up that the rockstar tank from last week is back. Only YOU see any of it;
 -- nothing is ever sent to party/raid chat.
@@ -8,16 +8,19 @@
 -- Players are keyed by GUID (stable per character; scout-verified readable and plain -
 -- not secret - for other players even in combat on WoW Forever build 69913).
 
-local ADDON, ns = ... -- ns = private table shared with TheShitList_Window.lua
+local ADDON, ns = ... -- ns = private table shared with TheShtList_Window.lua
 
 -- ------------------------------------------------------------------ canned tags
 -- id = what's saved (never rename one, or existing ratings lose it); text = what's shown
 local TAGS = {
-    { id = "asshole",  text = "Complete asshole",           bad = true },
+    -- the id is what's saved, so ratings made before this was reworded still show up.
+    -- The label is deliberately publishable: CurseForge bars profanity inside mods too.
+    { id = "asshole",  text = "Total jerk",                 bad = true },
     { id = "baddps",   text = "Terrible damage",            bad = true },
     { id = "badheal",  text = "Bad healer",                 bad = true },
     { id = "badtank",  text = "Bad tank",                   bad = true },
     { id = "pulls",    text = "Pulls everything",           bad = true },
+    { id = "nolisten", text = "Doesn't listen",             bad = true },
     { id = "ninja",    text = "Ninja looter",               bad = true },
     { id = "quitter",  text = "Leaves mid-run",             bad = true },
     { id = "afk",      text = "AFK / leecher",              bad = true },
@@ -34,7 +37,7 @@ local TAG_BY_ID = {}
 for _, t in ipairs(TAGS) do TAG_BY_ID[t.id] = t end
 
 local RED, GREEN, YELLOW, GREY = "ffff4040", "ff40ff60", "ffffd040", "ff9d9d9d"
-local PREFIX = "|cffff5555The Shit List:|r "
+local PREFIX = "|cffff5555The Sh*t List:|r "
 local function say(msg) DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. msg) end
 local function color(hex, text) return "|c" .. hex .. text .. "|r" end
 
@@ -82,14 +85,14 @@ local function merge(into, from)
 end
 
 -- macroBackup: mirror the list into hidden macros, which live on Blizzard's servers and
--- so survive the beta bug that stops saved variables loading (see TheShitList_Macro.lua).
+-- so survive the beta bug that stops saved variables loading (see TheShtList_Macro.lua).
 -- Off by default: it's an emergency option, offered by the "didn't load" popup, rather
 -- than something that quietly fills everyone's macro list.
 local DEFAULTS = { banner = true, sound = true, announceGood = true, macroBackup = false }
 
 local function initDB()
-    TheShitListDB = TheShitListDB or {}
-    db = TheShitListDB
+    TheShtListDB = TheShtListDB or {}
+    db = TheShtListDB
     db.players = db.players or {}
     db.settings = db.settings or {}
     for k, v in pairs(DEFAULTS) do
@@ -104,16 +107,16 @@ local function initDB()
 
     -- Account-wide saved files have failed to load on this beta before. If that ever
     -- happens, this character's backup refills the list instead of it being wiped.
-    TheShitListBackup = TheShitListBackup or {}
-    local restored = merge(players, TheShitListBackup.players)
-    if restored > 0 and TheShitListBackup.players and next(TheShitListBackup.players) then
+    TheShtListBackup = TheShtListBackup or {}
+    local restored = merge(players, TheShtListBackup.players)
+    if restored > 0 and TheShtListBackup.players and next(TheShtListBackup.players) then
         -- normal after rating people on another character; only worth saying if big
         if restored >= 5 then say("restored " .. restored .. " entries from this character's backup.") end
     end
 end
 
 local function saveBackup()
-    if players then TheShitListBackup.players = copy(players) end
+    if players then TheShtListBackup.players = copy(players) end
 end
 
 -- ------------------------------------------------------------------ entry helpers
@@ -343,7 +346,7 @@ local function acceptNote(popup)
     if data and eb then setNote(data, eb:GetText()) end
 end
 StaticPopupDialogs.THESHITLIST_NOTE = {
-    text = "Shit List note for %s:",
+    text = "Sh*t List note for %s:",
     button1 = ACCEPT or "Accept",
     button2 = CANCEL or "Cancel",
     hasEditBox = true,
@@ -387,7 +390,7 @@ end
 -- list had at the last logout. Marker says 12 but the list came back empty = the load
 -- failed. The layout cache is per character and rounds to whole numbers:
 --   x = (count % 1000) - 500, y = 200 + floor(count / 1000)
-local canary = CreateFrame("Frame", "TheShitListLoadMarker", UIParent)
+local canary = CreateFrame("Frame", "TheShtListLoadMarker", UIParent)
 canary:SetSize(1, 1)
 canary:SetAlpha(0)
 canary:EnableMouse(false)
@@ -418,11 +421,11 @@ local function writeMarker(count)
 end
 
 StaticPopupDialogs.THESHITLIST_LOADFAIL = {
-    text = "|cffff5555The Shit List|r\n\nYour saved list (%s players) didn't load this session.\n\n"
+    text = "|cffff5555The Sh*t List|r\n\nYour saved list (%s players) didn't load this session.\n\n"
         .. "This is a known WoW Forever beta bug (the game saves addon data but doesn't read it back), "
         .. "not a problem with the addon.\n\nRating is paused this session so nothing new gets mixed up with it.\n\n"
         .. "To get it back: quit the game completely, then in\nWTF\\Account\\<account>\\SavedVariables\n"
-        .. "rename TheShitList.lua.bak to TheShitList.lua (it usually still has your list), "
+        .. "rename TheShtList.lua.bak to TheShtList.lua (it usually still has your list), "
         .. "or install ForeverSVFix, which fixes this for every addon.\n\n"
         .. "(The addon also keeps a backup in hidden macros, which survives this bug. It had "
         .. "nothing to restore this time - it starts saving from now on, so a future failure "
@@ -601,7 +604,7 @@ local function buildMenu(owner, root, ctx, tag)
             if not plain(ctx.name) or ctx.name == UnitName("player") then return end
             lastRoot = root
             root:CreateDivider()
-            root:CreateButton(color(GREY, "The Shit List: can't identify this player"), function()
+            root:CreateButton(color(GREY, "The Sh*t List: can't identify this player"), function()
                 say("can't tell who that is from here - target them or right-click their portrait instead.")
                 say("menu " .. tostring(tag) .. ": " .. describeContext(ctx))
                 return MenuResponse and MenuResponse.Close
@@ -613,7 +616,7 @@ local function buildMenu(owner, root, ctx, tag)
     lastRoot = root
 
     local e = players[snap.guid]
-    local label = "The Shit List"
+    local label = "The Sh*t List"
     if isActive(e) then
         local v = verdict(e)
         label = label .. "  " .. color(VERDICT_COLOR[v], "(" .. v .. ")")
@@ -625,7 +628,7 @@ local function buildMenu(owner, root, ctx, tag)
     -- The tags used to be a submenu here, but picking anything in it made Blizzard's menu
     -- re-evaluate its own entries (Trade, Follow, Duel...) in an execution path our code
     -- had touched, and those entries need protected calls - producing
-    -- "AddOn 'TheShitList' tried to call the protected function 'CheckInteractDistance()'".
+    -- "AddOn 'TheShtList' tried to call the protected function 'CheckInteractDistance()'".
     -- Our own menu contains only our items, so nothing protected is re-checked.
     root:CreateButton(label, function()
         openRatingMenu(snap, owner)
@@ -662,7 +665,7 @@ local function hookTooltip()
                 if snap then entryFor(snap, false) end
             end
             local v = verdict(e)
-            tip:AddLine(color(VERDICT_COLOR[v], "Shit List (" .. v .. "): ") .. describe(e), 1, 1, 1, true)
+            tip:AddLine(color(VERDICT_COLOR[v], "Sh*t List (" .. v .. "): ") .. describe(e), 1, 1, 1, true)
         end)
     end)
 end
@@ -717,16 +720,18 @@ local function scan(quiet)
                 local previously = e.lastSeen and (" (last grouped " .. date("%b %d", e.lastSeen) .. " in " .. (e.lastSeenWhere or "?") .. ")") or ""
                 if v == "good" and not db.settings.announceGood then
                     -- still recorded as seen below, just not announced
+                -- the wording is tinted to match the verdict, so a good player reads green
+                -- at a glance and a bad one red, even before you read the words
                 elseif v == "bad" then
-                    say(color(RED, "WARNING: ") .. name .. " is in your group - " .. describe(e) .. previously)
+                    say(color(RED, "WARNING: ") .. name .. color(RED, " is in your group - ") .. describe(e) .. color(RED, previously))
                     anyBad = true
-                    if not quiet and banners < 3 then banner("Shit List: " .. (e.name or "?") .. " is in your group!", RED); banners = banners + 1 end
+                    if not quiet and banners < 3 then banner("Sh*t List: " .. (e.name or "?") .. " is in your group!", RED); banners = banners + 1 end
                 elseif v == "good" then
-                    say(color(GREEN, "Good news: ") .. name .. " is in your group - " .. describe(e) .. previously)
+                    say(color(GREEN, "Good news: ") .. name .. color(GREEN, " is in your group - ") .. describe(e) .. color(GREEN, previously))
                     anyGood = true
-                    if not quiet and banners < 3 then banner("Shit List: " .. (e.name or "?") .. " (" .. describe(e):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "") .. ")", GREEN); banners = banners + 1 end
+                    if not quiet and banners < 3 then banner("Sh*t List: " .. (e.name or "?") .. " (" .. describe(e):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "") .. ")", GREEN); banners = banners + 1 end
                 else
-                    say(color(YELLOW, "Heads up: ") .. name .. " is in your group - " .. describe(e) .. previously)
+                    say(color(YELLOW, "Heads up: ") .. name .. color(YELLOW, " is in your group - ") .. describe(e) .. color(YELLOW, previously))
                 end
                 if firstTimeThisGroup then
                     e.lastSeen, e.lastSeenWhere = time(), where
@@ -756,7 +761,7 @@ end
 -- ------------------------------------------------------------------ runs (end-of-run rating)
 -- A "run" = time spent grouped inside a dungeon/raid. Everyone seen in the group while
 -- inside is remembered, so the prompt still works after they've left the group. Stored
--- per character (TheShitListBackup.run / .lastRun) so it survives /reload mid-dungeon.
+-- per character (TheShtListBackup.run / .lastRun) so it survives /reload mid-dungeon.
 local RUN_MIN_SECONDS = 10 * 60   -- shorter than this (wrong portal, instant wipe) = no prompt
 local RESUME_SECONDS = 30 * 60    -- left and came back (repairs, hearth) = same run
 local promptPending = false       -- run ended during combat; show the prompt afterwards
@@ -774,7 +779,7 @@ local function showPrompt(run)
 end
 
 local function finishRun(force) -- force = /tsl endrun (testing): skip the 10-minute minimum
-    local B = TheShitListBackup
+    local B = TheShtListBackup
     local run = B.run
     B.run = nil
     if not run then return end
@@ -789,7 +794,7 @@ local function finishRun(force) -- force = /tsl endrun (testing): skip the 10-mi
 end
 
 local function trackRun()
-    local B = TheShitListBackup
+    local B = TheShtListBackup
     if not B then return end
     local key, where = instanceKey()
     local now = time()
@@ -912,9 +917,22 @@ SlashCmdList.THESHITLIST = function(msg)
         local ok, err = pcall(scan, false)
         if not ok then say("scan error: " .. tostring(err)) end
     elseif cmd == "test" then
-        say(color(RED, "WARNING: ") .. "Testname is in your group - " .. color(RED, "Complete asshole") .. " (this is a test)")
-        banner("Shit List: Testname is in your group!", RED)
-        sound("bad")
+        -- preview what a group-join alert looks like: /tsl test [bad|good|mixed]
+        local which = (rest ~= "" and rest:lower()) or "bad"
+        if which == "good" then
+            say(color(GREEN, "Good news: ") .. "Testname" .. color(GREEN, " is in your group - +3/-0, Great healer, Plays their class well (last grouped Sep 20 in Wailing Caverns)"))
+            banner("Sh*t List: Testname (Great healer)", GREEN)
+            sound("good")
+        elseif which == "mixed" then
+            say(color(YELLOW, "Heads up: ") .. "Testname is in your group - " .. color(GREEN, "+1") .. color(GREY, "/") .. color(RED, "-1") .. ", " .. color(RED, "Pulls everything") .. ", " .. color(GREEN, "Great damage"))
+            banner("Sh*t List: Testname is in your group", YELLOW)
+            sound("good")
+        else
+            say(color(RED, "WARNING: ") .. "Testname" .. color(RED, " is in your group - +0/-2, Complete asshole, Ninja looter (last grouped Sep 21 in Scholomance)"))
+            banner("Sh*t List: Testname is in your group!", RED)
+            sound("bad")
+        end
+        say(color(GREY, "(a preview - nothing is on your list. /tsl test good | mixed | bad)"))
     elseif cmd == "macrobackup" then
         if not ns.macroBackupSet then say("macro backup didn't load.") return end
         local slots = rest:match("^slots%s+(%d+)$")
@@ -939,7 +957,7 @@ SlashCmdList.THESHITLIST = function(msg)
         if not loadFailed then say("nothing to do - your list loaded fine.") return end
         loadFailed = false
         markedCount = 0
-        say("OK - starting a new list. Rating is unpaused. (Your old list's file is still on disk as TheShitList.lua.bak until the game replaces it.)")
+        say("OK - starting a new list. Rating is unpaused. (Your old list's file is still on disk as TheShtList.lua.bak until the game replaces it.)")
         notify()
     elseif cmd == "ratepreview" then
         -- see the end-of-run window without needing a dungeon group; saves nothing
@@ -947,10 +965,10 @@ SlashCmdList.THESHITLIST = function(msg)
         else say("rating window didn't load.") end
     elseif cmd == "endrun" then
         -- testing: end the current run right now, as if you'd left after 10+ minutes
-        if TheShitListBackup.run then finishRun(true)
+        if TheShtListBackup.run then finishRun(true)
         else say("not tracking a run right now (you need to be grouped inside a dungeon/raid).") end
     elseif cmd == "rate" then
-        local run = TheShitListBackup.run or TheShitListBackup.lastRun
+        local run = TheShtListBackup.run or TheShtListBackup.lastRun
         if run and ns.showRate then ns.showRate(run)
         else say("no dungeon/raid run to rate yet (runs count once you've been grouped inside for 10+ minutes).") end
     elseif cmd == "" or cmd == "show" then
@@ -958,20 +976,19 @@ SlashCmdList.THESHITLIST = function(msg)
     else
         if loadFailed then
             say(color(RED, "Your saved list (" .. (markedCount or "?") .. " players) didn't load this session") .. " - a known WoW Forever beta bug, not the addon. Rating is paused.")
-            say("To get it back: quit the game, then in WTF\\Account\\<account>\\SavedVariables rename TheShitList.lua.bak to TheShitList.lua - or install ForeverSVFix (fixes every addon).")
+            say("To get it back: quit the game, then in WTF\\Account\\<account>\\SavedVariables rename TheShtList.lua.bak to TheShtList.lua - or install ForeverSVFix (fixes every addon).")
             say("Starting a new list on purpose: /tsl startfresh")
         end
-        say("right-click any player (party/raid frame, target) -> The Shit List to rate them.")
-        say("/tsl  - open the list window")
-        say("/tsl list [bad|good|mixed]  - show your list")
-        say("/tsl group  - who in this group is on it")
-        say("/tsl rate  - thumbs up/down your current or last dungeon/raid group")
-        say("/tsl remove <name>  - take someone off")
+        say("remember the players worth grouping with, and the ones worth avoiding.")
+        say(color("ffffffff", "To rate someone:") .. " right-click them - their portrait, a party or raid frame, or their name in chat - and pick " .. color(RED, "The Sh*t List") .. ". Give a thumbs up or down, tick tags like " .. color(GREEN, "Great healer") .. " or " .. color(RED, "Ninja looter") .. ", or write a note.")
+        say(color("ffffffff", "It then warns you") .. " when someone on your list joins your group or invites you, marks them in the group finder, and shows their rating on their tooltip. Only you ever see any of it - nothing is sent to chat.")
+        say(color("ffffffff", "After a dungeon or raid") .. " it offers a window to thumb the group up or down while you still remember them.")
+        say(color("ffffffff", "Commands:"))
+        say("/tsl  - open your list (search, filter, edit)")
+        say("/tsl list [bad|good|mixed]  -  /tsl group  -  /tsl rate  -  /tsl remove <name>")
         say("/tsl banner | sound | good  - toggle banner (" .. onOff(db.settings.banner) .. "), sound ("
             .. onOff(db.settings.sound) .. "), announcing good players (" .. onOff(db.settings.announceGood) .. ")")
-        say("/tsl test  - preview a warning")
-        say("/tsl macrobackup [on|off]  - backup copy kept in hidden macros (" .. onOff(db.settings.macroBackup)
-            .. "); survives the beta bug that stops saved data loading")
+        say("/tsl test  - preview a warning     /tsl macrobackup  - extra backup copy in hidden macros (" .. onOff(db.settings.macroBackup) .. ")")
     end
 end
 
@@ -1021,7 +1038,7 @@ f:SetScript("OnEvent", function(_, event, ...)
         queueTrack()
     elseif event == "PLAYER_REGEN_ENABLED" then
         if promptPending then
-            local run = TheShitListBackup.lastRun
+            local run = TheShtListBackup.lastRun
             if run then showPrompt(run) else promptPending = false end
         end
     elseif event == "PLAYER_LOGOUT" then

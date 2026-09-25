@@ -58,7 +58,7 @@ local function snapOf(m)
 end
 
 local function build()
-    win = CreateFrame("Frame", "TheShitListRateWindow", UIParent, "BackdropTemplate")
+    win = CreateFrame("Frame", "TheShtListRateWindow", UIParent, "BackdropTemplate")
     win:SetSize(WIDTH, ROWS * ROW_H + 112)
     win:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -85,7 +85,7 @@ local function build()
     else
         win:SetPoint("CENTER", 0, 80)
     end
-    tinsert(UISpecialFrames, "TheShitListRateWindow")
+    tinsert(UISpecialFrames, "TheShtListRateWindow")
     win:Hide()
 
     win.title = win:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -120,9 +120,11 @@ local function build()
 
         row.tags = plainButton(row, "Tags...", 60)
         row.tags:SetPoint("RIGHT", -2, 0)
-        row.down = plainButton(row, "|cffff6060-1|r", 40)
+        -- the thumbs art the group finder loads, falling back to +1 / -1 text
+        local icons = ns.thumbIcons or {}
+        row.down = plainButton(row, icons.bad or "|cffff6060-1|r", 40)
         row.down:SetPoint("RIGHT", row.tags, "LEFT", -6, 0)
-        row.up = plainButton(row, "|cff60ff60+1|r", 40)
+        row.up = plainButton(row, icons.good or "|cff60ff60+1|r", 40)
         row.up:SetPoint("RIGHT", row.down, "LEFT", -4, 0)
 
         local function vote(v)
